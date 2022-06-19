@@ -1,13 +1,17 @@
 import os
 import uuid
 
+from decouple import config
+
 from constants import TEMP_FILE_FOLDER
 from db import database
 from models import complaint, RoleType, State
 from services.s3 import S3Service
+from services.ses import SESService
 from utils.helpers import decode_photo
 
 s3 = S3Service()
+ses = SESService()
 
 
 class ComplaintManager:
@@ -39,7 +43,17 @@ class ComplaintManager:
 
     @staticmethod
     async def approve(id_):
-        await database.execute(complaint.update().where(complaint.c.id == id_).values(status=State.approved))
+        await database.execute(
+                complaint.update()
+                .where(complaint.c.id == id_)
+                .values(status=State.approved)
+        )
+        # Email should be user email. As this is a sandbox it will send to the source email
+        ses.send_mail(
+            "Complaint approved!",
+            [config("SOURCE_EMAIL")],
+            "Congrats! Your complaint is approved, check your bank account"
+        )
 
     @staticmethod
     async def reject(id_):
